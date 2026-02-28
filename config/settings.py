@@ -13,5 +13,3 @@ DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR}/fintwist.db")
 
 if not TELEGRAM_BOT_TOKEN:
     raise ValueError(f"No TELEGRAM_BOT_TOKEN provided in .env file (looked at {BASE_DIR / '.env'})")
-if not OPENROUTER_API_KEY:
-    raise ValueError("No OPENROUTER_API_KEY provided in .env file")
