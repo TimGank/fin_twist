@@ -1,0 +1,9 @@
+python-telegram-bot
+python-dotenv
+sqlalchemy
+pydantic
+openai
+pytest
+fastapi
+uvicorn
+pytz
