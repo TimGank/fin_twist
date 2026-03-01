@@ -11,6 +11,7 @@ class User(Base):
     telegram_id = Column(Integer, unique=True, nullable=False)
     username = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
+    monthly_budget = Column(Float, default=0.0) # Добавляем поле для бюджета
     
     expenses = relationship("Expense", back_populates="user")
 
@@ -25,3 +26,12 @@ class Expense(Base):
     date = Column(DateTime, default=datetime.utcnow)
     
     user = relationship("User", back_populates="expenses")
+
+class ErrorLog(Base):
+    __tablename__ = 'error_logs'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    request_text = Column(String)
+    output_text = Column(String)
+    error_trace = Column(String)
+    timestamp = Column(DateTime, default=datetime.utcnow)

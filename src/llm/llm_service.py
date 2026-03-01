@@ -4,7 +4,7 @@ import ollama
 logger = logging.getLogger(__name__)
 
 class LLMService:
-    def __init__(self, model="llama3"):
+    def __init__(self, model="qwen2.5:3b"):
         self.model = model
         try:
             # Проверяем, доступен ли Ollama и есть ли модель
@@ -18,19 +18,20 @@ class LLMService:
             logger.error("="*50)
             raise
 
-    async def get_response(self, prompt: str, system_prompt: str = "Ты — полезный финансовый ассистент."):
+    async def get_response(self, prompt: str, system_prompt: str = "Ты — полезный финансовый ассистент.", json_format: bool = False):
         logger.info(f"Отправка запроса в Ollama (модель: {self.model})...")
         try:
             # Используем async-клиент, который появится в будущих версиях,
             # а пока вызываем синхронный метод в executor'е, чтобы не блокировать asyncio.
             # Для простоты пока оставим синхронный вызов, т.к. он быстрый на локальной машине.
+            options = {"format": "json"} if json_format else {}
             response = ollama.chat(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
-                format='json' # Просим Ollama сразу вернуть валидный JSON
+                **options
             )
             content = response['message']['content']
             logger.info("Ответ от Ollama получен успешно.")

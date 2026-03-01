@@ -38,3 +38,31 @@ def get_stats(db_session, user_id: int, period: str = "day"):
     total_amount = sum(amount for amount, category in expenses_by_category)
 
     return total_amount, expenses_by_category
+
+def get_detailed_stats(db_session, user_id: int):
+    """
+    Возвращает список всех трат за текущий месяц для анализа LLM.
+    """
+    today = datetime.utcnow().date()
+    start_date = datetime.combine(today.replace(day=1), datetime.min.time())
+    
+    expenses = db_session.query(Expense).filter(
+        Expense.user_id == user_id,
+        Expense.date >= start_date
+    ).order_by(Expense.date.asc()).all()
+    
+    return expenses
+
+def delete_last_expense(db_session, user_id: int):
+    """
+    Удаляет последнюю запись о трате пользователя.
+    """
+    last_expense = db_session.query(Expense).filter(
+        Expense.user_id == user_id
+    ).order_by(Expense.date.desc()).first()
+    
+    if last_expense:
+        db_session.delete(last_expense)
+        db_session.commit()
+        return last_expense
+    return None
