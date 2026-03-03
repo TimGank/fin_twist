@@ -1,9 +1,11 @@
 import random
 import asyncio
 import traceback
+import os
 from telegram import Update
 from telegram.ext import ContextTypes
 from src.core.categorizer import parse_expense
+from src.core.receipt_parser import process_receipt_image
 from src.db.database import SessionLocal
 from src.db.models import User, Expense, ErrorLog
 from src.db.crud import get_stats, delete_last_expense
@@ -38,15 +40,88 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = (
         "🤖 *Команды бота ФинТвист:*\n\n"
-        "📝 *Учет трат:* Просто пиши текст, например: 'кофе 200' или 'такси 300 и обед 500'.\n\n"
+        "📝 *Учет трат:* Просто пиши текст, например: 'кофе 200' или 'такси 300 и обед 500'.\n"
+        "📸 *Чеки:* Пришли фото QR-кода на чеке, и я сам его распознаю!\n\n"
         "📊 /stats — Посмотреть расходы за день, неделю или месяц.\n"
-        "💰 /budget <сумма> — Установить месячный лимит (например, `/budget 50000`).\n"
-        "💰 /budget — Посмотреть остаток лимита на этот месяц.\n"
-        "💡 /advice — Получить советы по экономии от нейросети.\n"
+        "💰 /budget <сумма> — Установить месячный лимит.\n"
+        "💡 /advice — Получить советы по экономии.\n"
         "↩️ /undo — Удалить последнюю записанную трату.\n"
         "❓ /help — Показать это сообщение."
     )
     await update.message.reply_text(help_text, parse_mode='Markdown')
+
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_tg = update.effective_user
+    if not update.message.photo:
+        return
+        
+    photo = update.message.photo[-1] # Берем самое качественное фото
+    
+    status_message = await update.message.reply_text("📸 Вижу фото! Ищу QR-код... 🔍")
+    
+    try:
+        # Скачиваем файл
+        file = await context.bot.get_file(photo.file_id)
+        file_path = f"tmp_receipt_{user_tg.id}.jpg"
+        await file.download_to_drive(file_path)
+        
+        # Обрабатываем изображение
+        from src.core.receipt_parser import process_receipt_image
+        receipt_data = process_receipt_image(file_path)
+        
+        # Удаляем временный файл
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            
+        if not receipt_data:
+            await status_message.edit_text("❌ Не удалось найти или распознать QR-код на чеке. Попробуй сделать фото почетче.")
+            return
+
+        # Проверяем на дубликат по подписи чека
+        receipt_sig = receipt_data.get('receipt_sig')
+        
+        with SessionLocal() as db:
+            if receipt_sig:
+                existing_expense = db.query(Expense).filter(Expense.receipt_sig == receipt_sig).first()
+                if existing_expense:
+                    # Определяем, чей это чек
+                    is_own = existing_expense.user_id == (db.query(User).filter(User.telegram_id == user_tg.id).first().id if db.query(User).filter(User.telegram_id == user_tg.id).first() else None)
+                    
+                    if is_own:
+                        await status_message.edit_text("🚫 Ты уже регистрировал(а) этот чек ранее. Трата не добавлена повторно.")
+                    else:
+                        await status_message.edit_text("🚫 Этот чек уже зарегистрирован другим пользователем. Хитрить не получится! 😉")
+                    return
+
+            user = db.query(User).filter(User.telegram_id == user_tg.id).first()
+            if not user:
+                user = User(telegram_id=user_tg.id, username=user_tg.username)
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+
+            new_expense = Expense(
+                user_id=user.id,
+                item=receipt_data['shop'],
+                amount=receipt_data['amount'],
+                category="чеки",
+                currency="RUB",
+                receipt_sig=receipt_sig
+            )
+            db.add(new_expense)
+            db.commit()
+
+        reply = (
+            f"✅ *Чек успешно добавлен!*\n\n"
+            f"📍 Магазин: `{receipt_data['shop']}`\n"
+            f"💰 Сумма: `{receipt_data['amount']:.2f} RUB`"
+        )
+        await status_message.edit_text(reply, parse_mode='Markdown')
+
+    except Exception as e:
+        await status_message.edit_text("🙊 Ой, что-то пошло не так при обработке фото...")
+        print(f"Error handling photo: {e}")
+        traceback.print_exc()
 
 async def undo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_tg = update.effective_user

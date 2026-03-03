@@ -24,6 +24,7 @@ class Expense(Base):
     category = Column(String)
     currency = Column(String, default="RUB")
     date = Column(DateTime, default=datetime.utcnow)
+    receipt_sig = Column(String, unique=True, nullable=True) # Уникальная подпись чека (fn_fd_fp)
     
     user = relationship("User", back_populates="expenses")
 

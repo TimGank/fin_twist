@@ -19,7 +19,7 @@ from telegram.ext import (
 )
 from src.db.database import init_db
 from src.bot.handlers import (
-    start, handle_message, help_command, undo_command
+    start, handle_message, help_command, undo_command, handle_photo
 )
 from src.bot.budget_handlers import budget_command
 from src.bot.advice_handlers import advice_command
@@ -63,6 +63,7 @@ def start_bot():
     application.add_handler(CommandHandler('undo', undo_command))
     application.add_handler(CommandHandler('budget', budget_command))
     application.add_handler(CommandHandler('advice', advice_command))
+    application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
     
     print("Бот запущен в Telegram...")
