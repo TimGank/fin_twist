@@ -123,6 +123,19 @@ def get_expense_stats(user_id: int):
         ''', (user_id,))
         return cursor.fetchall()
 
+def get_last_expense(user_id: int):
+    """Возвращает последнюю трату пользователя."""
+    import sqlite3
+    with sqlite3.connect("fin_twist.db") as conn:
+        cursor = conn.cursor()
+        # Сортируем по ID (последний созданный) и берем только 1
+        cursor.execute('''
+            SELECT amount, category, description, date 
+            FROM expenses 
+            WHERE user_id = ? 
+            ORDER BY id DESC LIMIT 1
+        ''', (user_id,))
+        return cursor.fetchone()
 
 if __name__ == "__main__":
     init_db()
