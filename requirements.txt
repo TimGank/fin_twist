@@ -9,3 +9,7 @@ python-dotenv
 aiogram
 matplotlib
 openpyxl
+easyocr
+pyzbar
+Pillow
+opencv-python-headless

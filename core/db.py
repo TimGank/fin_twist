@@ -49,6 +49,25 @@ def init_db():
         conn.commit()
 
 
+def add_xp(user_id: int, amount_xp: int):
+    """Добавляет XP и проверяет уровень."""
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        # Создаем юзера, если его нет
+        cursor.execute('INSERT OR IGNORE INTO users (user_id) VALUES (?)', (user_id,))
+        # Начисляем XP
+        cursor.execute('UPDATE users SET xp = xp + ? WHERE user_id = ?', (amount_xp, user_id))
+
+        # Сеньорская математика: уровень = корень из (XP / 100)
+        cursor.execute('SELECT xp FROM users WHERE user_id = ?', (user_id,))
+        current_xp = cursor.fetchone()[0]
+        new_level = int((current_xp / 100) ** 0.5) + 1
+
+        cursor.execute('UPDATE users SET level = ? WHERE user_id = ?', (new_level, user_id))
+        conn.commit()
+        return new_level
+
+
 def add_user_if_not_exists(user_id: int, platform: str = 'telegram'):
     """Проверяет, есть ли юзер в базе. Если нет — создает."""
     with sqlite3.connect(DB_PATH) as conn:
